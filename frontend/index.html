@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SmartExpense Tracker - Professional Finance Management</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+  <nav class="nav">
+    <div class="nav-title">SmartExpense Tracker</div>
+    <div class="nav-links">
+      <a href="login.html" class="btn btn--primary">Login</a>
+      <a href="register.html" class="btn btn--outline">Sign Up</a>
+      <button onclick="toggleDarkMode()" class="theme-toggle" title="Toggle Dark Mode">🌙</button>
+    </div>
+  </nav>
+
+  <main>
+    <section class="hero">
+      <div class="container">
+        <div class="text-center">
+          <h1>SmartExpense Tracker</h1>
+          <p class="text-secondary mb-xl max-w-2xl mx-auto fs-large">Professional expense tracking with AI insights, budgets, recurring payments, and visual analytics. Take control of your finances.</p>
+          
+          <div class="hero-buttons">
+            <a href="register.html" class="btn btn--primary btn-lg">Get Started - Free</a>
+            <a href="login.html" class="btn btn--outline btn-lg">Existing Account</a>
+          </div>
+        </div>
+
+        <section class="stats mt-3xl">
+          <div class="stat-card">
+            <div class="stat-number icon-large">📊</div>
+            <div class="stat-label">Expense Tracking</div>
+            <p class="mt-xs text-center opacity-90">Receipt scanning & categorization</p>
+          </div>
+          <div class="stat-card">
+            <div class="stat-number icon-large">🎯</div>
+            <div class="stat-label">Smart Budgets</div>
+            <p class="mt-xs text-center opacity-90">Real-time alerts & limits</p>
+          </div>
+          <div class="stat-card">
+            <div class="stat-number icon-large">📈</div>
+            <div class="stat-label">AI Insights</div>
+            <p class="mt-xs text-center opacity-90">Charts & spending analysis</p>
+          </div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <script src="common.js"></script>
+  <script>
+    // Apply saved dark-mode preference (uses common.js)
+    document.addEventListener('DOMContentLoaded', () => {
+      if (typeof applyDarkModePreference === 'function') {
+        applyDarkModePreference();
+      } else if (localStorage.getItem('darkMode') === 'true') {
+        document.body.classList.add('dark-mode');
+      }
+    });
+  </script>
+</body>
+</html>
