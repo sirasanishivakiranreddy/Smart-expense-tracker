@@ -1,0 +1,257 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Recurring Expenses - SmartExpense Tracker</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body {
+      margin: 0;
+      background: linear-gradient(180deg, #f4f2fb 0%, #edf0f7 100%);
+      min-height: 100vh;
+    }
+
+    .nav {
+      background: linear-gradient(90deg, #1e0830 0%, #3f005e 45%, #24063c 100%);
+      border: none;
+      box-shadow: 0 10px 30px rgba(52, 0, 74, 0.28);
+    }
+
+    .nav-title,
+    .nav-link {
+      color: #fff;
+    }
+
+    .nav-link:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .theme-toggle {
+      border-color: rgba(255, 255, 255, 0.28);
+      color: #fff;
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .container {
+      padding-top: 2rem;
+      padding-bottom: 3rem;
+    }
+
+    .card {
+      border-radius: 24px;
+      border: 1px solid rgba(93, 77, 142, 0.16);
+      box-shadow: 0 20px 45px rgba(46, 24, 86, 0.1);
+      background: rgba(255, 255, 255, 0.95);
+    }
+  </style>
+</head>
+<body>
+
+  <nav class="nav">
+    <div class="nav-title">Smart Expense Tracker</div>
+    <div class="nav-links">
+      <a href="dashboard.html" class="nav-link">Dashboard</a>
+      <a href="add-expense.html" class="nav-link">Add Expense</a>
+      <a href="income.html" class="nav-link">Income</a>
+      <a href="recurring.html" class="nav-link">Recurring</a>
+      <a href="budget.html" class="nav-link">Budget</a>
+      <button onclick="toggleDarkMode()" class="theme-toggle" title="Toggle Dark Mode">🌙</button>
+      <a href="#" onclick="logout()" class="nav-link btn btn--outline btn--small">Logout</a>
+    </div>
+  </nav>
+
+  <main class="container">
+    <header class="mb-xl">
+      <h1>Recurring Expenses</h1>
+      <p class="text-secondary max-w-lg mx-auto text-center">Manage rent, subscriptions, utilities and other regular payments</p>
+    </header>
+
+    <!-- Add Form -->
+    <section class="card mb-xl">
+      <h2 class="mb-lg">Add Recurring Expense</h2>
+      <p class="text-secondary mb-lg">Rent, electricity, internet, subscriptions, insurance, etc.</p>
+      <form class="grid-3 gap-md max-w-4xl">
+        <div class="form-group">
+          <label class="form-label" for="recAmount">Amount (₹)</label>
+          <input type="number" id="recAmount" class="form-input" min="0" step="0.01" placeholder="2000" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="recCategory">Category</label>
+          <select id="recCategory" class="form-select" required>
+            <option value="Housing">🏠 Housing</option>
+            <option value="Utilities">⚡ Utilities</option>
+            <option value="Internet">🌐 Internet</option>
+            <option value="Subscriptions">📱 Subscriptions</option>
+            <option value="Insurance">🛡️ Insurance</option>
+            <option value="Loan">💳 Loan EMI</option>
+            <option value="Maintenance">🔧 Maintenance</option>
+            <option value="Other">📦 Other</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="recDesc">Description</label>
+          <input type="text" id="recDesc" class="form-input" placeholder="Apartment rent - monthly" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="recFreq">Frequency</label>
+          <select id="recFreq" class="form-select" required>
+            <option value="weekly">Weekly</option>
+            <option value="monthly" selected>Monthly</option>
+            <option value="quarterly">Quarterly</option>
+            <option value="yearly">Yearly</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="recStartDate">Start Date</label>
+          <input type="date" id="recStartDate" class="form-input">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="recEndDate">End Date (optional)</label>
+          <input type="date" id="recEndDate" class="form-input">
+        </div>
+        <div></div>
+        <button type="button" onclick="addRecurringExpense()" class="btn btn--danger full-width col-span-3">Add Recurring</button>
+      </form>
+    </section>
+
+    <!-- Stats -->
+    <section class="stats mb-xl">
+      <div class="stat-card">
+        <div class="stat-number" id="monthlyTotal">₹0</div>
+        <div class="stat-label">Monthly Total</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="recurCount">0</div>
+        <div class="stat-label">Active Items</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="nextDue">-</div>
+        <div class="stat-label">Next Due</div>
+      </div>
+    </section>
+
+    <!-- List -->
+    <section class="card">
+      <h2 class="mb-lg">Active Recurring Expenses</h2>
+      <div id="recurringList" class="grid-1 gap-md">
+        <div class="text-center py-xl text-secondary">Loading...</div>
+      </div>
+    </section>
+  </main>
+
+  <script src="common.js"></script>
+  <script>
+    const token = localStorage.getItem('token');
+    if (!token) window.location.href = 'login.html';
+
+    let recurringData = [];
+    document.getElementById('recStartDate').valueAsDate = new Date();
+
+    async function loadRecurringData() {
+      try {
+        const res = await apiFetch('/api/expenses/recurring/all', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        recurringData = await res.json();
+
+        // Stats
+        const total = recurringData.reduce((sum, r) => sum + parseFloat(r.amount || 0), 0);
+        document.getElementById('monthlyTotal').textContent = '₹' + total.toLocaleString();
+        document.getElementById('recurCount').textContent = recurringData.length;
+        document.getElementById('nextDue').textContent = recurringData.length ? 
+          new Date(Math.min(...recurringData.map(r => new Date(r.next_due_date)))).toLocaleDateString('en-IN') : '-';
+
+        renderRecurringList();
+      } catch (err) {
+        console.error(err);
+      }
+    }
+
+    function renderRecurringList() {
+      const container = document.getElementById('recurringList');
+      if (!recurringData.length) {
+        container.innerHTML = '<div class="text-center py-xl text-secondary">No recurring expenses set</div>';
+        return;
+      }
+
+      container.innerHTML = recurringData.map(r => `
+        <div class="card">
+          <div class="grid-3">
+            <div>
+              <h4 class="mb-xs">${r.category}</h4>
+              <p class="text-secondary">${r.description}</p>
+            </div>
+            <div class="text-center">
+              <div class="stat-number">₹${parseFloat(r.amount).toLocaleString()}</div>
+              <p class="text-secondary">${r.frequency}</p>
+            </div>
+            <div class="text-right">
+              <p><strong>Next Due:</strong> ${new Date(r.next_due_date).toLocaleDateString('en-IN')}</p>
+              <button onclick="deleteRecurring('${r.id}')" class="btn btn--danger btn--small mt-sm">Delete</button>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    async function addRecurringExpense() {
+      const data = {
+        amount: parseFloat(document.getElementById('recAmount').value),
+        category: document.getElementById('recCategory').value,
+        description: document.getElementById('recDesc').value,
+        frequency: document.getElementById('recFreq').value,
+        start_date: document.getElementById('recStartDate').value,
+        end_date: document.getElementById('recEndDate').value || null
+      };
+
+      if (!data.amount || !data.category || !data.description || !data.start_date) {
+        alert('Complete all required fields');
+        return;
+      }
+
+      try {
+        const res = await apiFetch('/api/expenses/recurring/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify(data)
+        });
+        if (res.ok) {
+          loadRecurringData();
+          document.getElementById('recAmount').value = '';
+          document.getElementById('recDesc').value = '';
+          document.getElementById('recStartDate').value = '';
+        }
+      } catch (err) {
+        alert('Error adding recurring expense');
+      }
+    }
+
+    async function deleteRecurring(id) {
+      if (!confirm('Delete this recurring expense?')) return;
+      try {
+        await apiFetch(`/api/expenses/recurring/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
+        loadRecurringData();
+      } catch (err) {
+        alert('Delete failed');
+      }
+    }
+
+    // Auth & Theme
+    function logout() {
+      localStorage.clear();
+      window.location.href = 'login.html';
+    }
+
+    function toggleDarkMode() {
+      document.body.classList.toggle('dark-mode');
+      localStorage.setItem('darkMode', document.body.classList.contains('dark-mode'));
+    }
+
+    if (localStorage.getItem('darkMode') === 'true') document.body.classList.add('dark-mode');
+
+    loadRecurringData();
+  </script>
+</body>
+</html>

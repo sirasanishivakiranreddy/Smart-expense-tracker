@@ -1,0 +1,298 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Income - SmartExpense Tracker</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <style>
+    body {
+      margin: 0;
+      background: linear-gradient(180deg, #f4f2fb 0%, #edf0f7 100%);
+      min-height: 100vh;
+    }
+
+    .nav {
+      background: linear-gradient(90deg, #1e0830 0%, #3f005e 45%, #24063c 100%);
+      border: none;
+      box-shadow: 0 10px 30px rgba(52, 0, 74, 0.28);
+    }
+
+    .nav-title,
+    .nav-link {
+      color: #fff;
+    }
+
+    .nav-link:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .theme-toggle {
+      border-color: rgba(255, 255, 255, 0.28);
+      color: #fff;
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .container {
+      padding-top: 2rem;
+      padding-bottom: 3rem;
+    }
+
+    .card {
+      border-radius: 24px;
+      border: 1px solid rgba(93, 77, 142, 0.16);
+      box-shadow: 0 20px 45px rgba(46, 24, 86, 0.1);
+      background: rgba(255, 255, 255, 0.95);
+    }
+  </style>
+</head>
+<body>
+
+  <nav class="nav">
+    <div class="nav-title">Smart Expense Tracker</div>
+    <div class="nav-links">
+      <a href="dashboard.html" class="nav-link">Dashboard</a>
+      <a href="add-expense.html" class="nav-link">Add Expense</a>
+      <a href="income.html" class="nav-link">Income</a>
+      <a href="recurring.html" class="nav-link">Recurring</a>
+      <a href="budget.html" class="nav-link">Budget</a>
+      <button onclick="toggleDarkMode()" class="theme-toggle" title="Toggle Dark Mode">🌙</button>
+      <a href="#" onclick="logout()" class="nav-link btn btn--outline btn--small">Logout</a>
+    </div>
+  </nav>
+
+  <main class="container">
+    <header class="mb-xl">
+      <h1>Income Tracking</h1>
+      <p class="text-secondary max-w-lg mx-auto text-center">Track salary, freelance, investments and all income sources with visual insights</p>
+    </header>
+
+    <!-- Add Income Form -->
+    <section class="card mb-lg">
+      <h2 class="mb-lg">Add Income Entry</h2>
+      <div class="grid-2 gap-lg max-w-2xl">
+        <div class="form-group">
+          <label class="form-label" for="incomeAmount">Amount (₹)</label>
+          <input type="number" id="incomeAmount" class="form-input" min="0" step="0.01" placeholder="Enter amount" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="incomeSource">Source</label>
+          <input type="text" id="incomeSource" class="form-input" placeholder="Salary, Freelance, Investment etc" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="incomeDesc">Description (optional)</label>
+          <input type="text" id="incomeDesc" class="form-input" placeholder="e.g., Q1 Salary">
+        </div>
+        <div class="form-group">
+          <label class="form-label" for="incomeDate">Date</label>
+          <input type="date" id="incomeDate" class="form-input">
+        </div>
+        <div></div>
+        <button onclick="addIncomeEntry()" class="btn btn--success full-width">Add Income</button>
+      </div>
+    </section>
+
+    <!-- Stats -->
+    <section class="stats">
+      <div class="stat-card">
+        <div class="stat-number" id="totalIncome">₹0</div>
+        <div class="stat-label">Total Income</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="avgIncome">₹0</div>
+        <div class="stat-label">Average</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-number" id="incomeCount">0</div>
+        <div class="stat-label">Entries</div>
+      </div>
+    </section>
+
+    <!-- Charts -->
+    <section class="grid-2 gap-lg mb-xl">
+      <div class="card">
+        <h3 class="mb-md">Income by Source</h3>
+        <canvas id="incomeSourceChart" height="250"></canvas>
+      </div>
+      <div class="card">
+        <h3 class="mb-md">Monthly Trend</h3>
+        <canvas id="monthlyIncomeChart" height="250"></canvas>
+      </div>
+    </section>
+
+    <!-- History Table -->
+    <section class="card">
+      <div class="grid-2 mb-lg">
+        <h2 class="mb-sm">Income History</h2>
+        <button onclick="downloadIncomeCSV()" class="btn btn--primary">
+          📥 Export CSV
+        </button>
+      </div>
+      <div class="table-container">
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Source</th>
+              <th>Description</th>
+              <th>Amount</th>
+              <th>Action</th>
+            </tr>
+          </thead>
+          <tbody id="incomeTable">
+            <tr><td colspan="5" class="text-center py-lg text-secondary">Loading...</td></tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+
+  <script src="common.js"></script>
+  <script>
+    const token = localStorage.getItem('token');
+    if (!token) window.location.href = 'login.html';
+
+    let incomeData = [];
+
+    document.getElementById('incomeDate').valueAsDate = new Date();
+
+    async function loadIncomeData() {
+      try {
+        const res = await apiFetch('/api/expenses/income/all', {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error('Failed to load');
+        incomeData = await res.json();
+
+        // Update stats
+        const total = incomeData.reduce((sum, i) => sum + parseFloat(i.amount || 0), 0);
+        const avg = incomeData.length ? (total / incomeData.length).toFixed(2) : 0;
+        
+        document.getElementById('totalIncome').textContent = '₹' + total.toLocaleString('en-IN');
+        document.getElementById('avgIncome').textContent = '₹' + avg.toLocaleString('en-IN');
+        document.getElementById('incomeCount').textContent = incomeData.length;
+
+        renderIncomeTable();
+        renderCharts();
+      } catch (err) {
+        document.getElementById('incomeTable').innerHTML = '<tr><td colspan="5" class="text-center text-danger py-lg">Error loading data</td></tr>';
+      }
+    }
+
+    function renderIncomeTable() {
+      const tbody = document.getElementById('incomeTable');
+      if (!incomeData.length) {
+        tbody.innerHTML = '<tr><td colspan="5" class="text-center py-lg text-secondary">No income entries</td></tr>';
+        return;
+      }
+
+      tbody.innerHTML = incomeData.map(i => `
+        <tr>
+          <td>${new Date(i.date).toLocaleDateString('en-IN')}</td>
+          <td>${i.source}</td>
+          <td>${i.description || '-'}</td>
+          <td class="font-bold text-success">₹${parseFloat(i.amount).toLocaleString('en-IN')}</td>
+          <td><button onclick="deleteIncome('${i.id}')" class="btn btn--danger btn--small">Delete</button></td>
+        </tr>
+      `).join('');
+    }
+
+    function renderCharts() {
+      // Source chart
+      const sourceCtx = document.getElementById('incomeSourceChart').getContext('2d');
+      const sources = {};
+      incomeData.forEach(i => sources[i.source] = (sources[i.source] || 0) + parseFloat(i.amount));
+      
+      new Chart(sourceCtx, {
+        type: 'doughnut',
+        data: {
+          labels: Object.keys(sources),
+          datasets: [{ data: Object.values(sources), backgroundColor: ['#10b981', '#3b82f6', '#f59e0b'] }]
+        },
+        options: { responsive: true }
+      });
+
+      // Monthly
+      const monthlyCtx = document.getElementById('monthlyIncomeChart').getContext('2d');
+      const monthly = {};
+      incomeData.forEach(i => {
+        const m = new Date(i.date).toLocaleString('en-IN', { month: 'short', year: 'numeric' });
+        monthly[m] = (monthly[m] || 0) + parseFloat(i.amount);
+      });
+      
+      new Chart(monthlyCtx, {
+        type: 'line',
+        data: {
+          labels: Object.keys(monthly),
+          datasets: [{ label: 'Income', data: Object.values(monthly), borderColor: '#10b981', fill: true }]
+        },
+        options: { responsive: true }
+      });
+    }
+
+    async function addIncomeEntry() {
+      const data = {
+        amount: parseFloat(document.getElementById('incomeAmount').value),
+        source: document.getElementById('incomeSource').value,
+        description: document.getElementById('incomeDesc').value,
+        date: document.getElementById('incomeDate').value
+      };
+
+      if (!data.amount || !data.source) return alert('Amount and source required');
+
+      try {
+        const res = await apiFetch('/api/expenses/income/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify(data)
+        });
+        if (res.ok) {
+          document.querySelector('.stats').scrollIntoView();
+          loadIncomeData();
+          document.getElementById('incomeAmount').value = '';
+          document.getElementById('incomeSource').value = '';
+        }
+      } catch (err) {
+        alert('Error adding income');
+      }
+    }
+
+    async function deleteIncome(id) {
+      if (!confirm('Delete this entry?')) return;
+      try {
+        await apiFetch(`/api/expenses/income/${id}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
+        loadIncomeData();
+      } catch (err) {
+        alert('Delete failed');
+      }
+    }
+
+    function downloadIncomeCSV() {
+      const csv = ['Date,Source,Description,Amount'].concat(
+        incomeData.map(i => [new Date(i.date).toLocaleDateString('en-IN'), i.source, i.description, i.amount].join(','))
+      ).join('\\n');
+      const a = document.createElement('a');
+      a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+      a.download = 'income.csv';
+      a.click();
+    }
+
+    // Auth & Theme (same as other pages)
+    function logout() {
+      localStorage.clear();
+      window.location.href = 'login.html';
+    }
+
+    function toggleDarkMode() {
+      document.body.classList.toggle('dark-mode');
+      localStorage.setItem('darkMode', document.body.classList.contains('dark-mode'));
+    }
+
+    if (localStorage.getItem('darkMode') === 'true') document.body.classList.add('dark-mode');
+
+    loadIncomeData();
+  </script>
+</body>
+</html>

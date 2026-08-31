@@ -1,0 +1,256 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Login - Smart Expense Tracker</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: #ececf3;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 20px;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    }
+
+    .login-card {
+      width: 100%;
+      max-width: 420px;
+      background: #fff;
+      border-radius: 16px;
+      padding: 34px 30px;
+      box-shadow: 0 10px 28px rgba(30, 20, 65, 0.1);
+      border: 1px solid #e7e3f4;
+    }
+
+    .login-header {
+      text-align: center;
+      margin-bottom: 24px;
+    }
+
+    .login-header h1 {
+      margin: 0;
+      color: #23153f;
+      font-size: 2rem;
+      font-weight: 800;
+    }
+
+    .login-header p {
+      margin: 8px 0 0;
+      color: #726e8c;
+      font-size: 1rem;
+    }
+
+    .form-group {
+      margin-bottom: 14px;
+    }
+
+    .form-group label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 0.95rem;
+      color: #2f2a47;
+      font-weight: 700;
+    }
+
+    .form-input {
+      width: 100%;
+      padding: 13px 14px;
+      border-radius: 10px;
+      border: 2px solid #e0def0;
+      background: #faf9ff;
+      font-size: 1rem;
+      box-sizing: border-box;
+      transition: border-color 0.2s ease;
+    }
+
+    .form-input:focus {
+      outline: none;
+      border-color: #7c3aed;
+    }
+
+    .login-btn {
+      width: 100%;
+      margin-top: 10px;
+      border: none;
+      border-radius: 10px;
+      padding: 13px 14px;
+      font-size: 1.03rem;
+      font-weight: 700;
+      color: #fff;
+      background: linear-gradient(135deg, #6d4dff, #6a2fd9);
+      cursor: pointer;
+    }
+
+    .login-btn:disabled {
+      opacity: 0.75;
+      cursor: not-allowed;
+    }
+
+    .error-message,
+    .success-message {
+      display: none;
+      border-radius: 10px;
+      padding: 10px 12px;
+      margin-bottom: 12px;
+      font-size: 0.92rem;
+    }
+
+    .error-message {
+      color: #b91c1c;
+      background: #fef2f2;
+      border: 1px solid #fecaca;
+    }
+
+    .success-message {
+      color: #166534;
+      background: #f0fdf4;
+      border: 1px solid #bbf7d0;
+    }
+
+    .login-links {
+      margin-top: 14px;
+      text-align: center;
+      font-size: 0.95rem;
+      color: #7d7697;
+    }
+
+    .login-links a {
+      color: #6f28d9;
+      text-decoration: none;
+      font-weight: 700;
+    }
+
+    .login-links a:hover {
+      text-decoration: underline;
+    }
+  </style>
+</head>
+<body>
+  <main class="login-card">
+    <div class="login-header">
+      <h1>👋 Welcome Back!</h1>
+      <p>Login to your account</p>
+    </div>
+
+    <div class="error-message" id="errorMsg" role="alert"></div>
+    <div class="success-message" id="successMsg"></div>
+
+    <form id="loginForm">
+      <div class="form-group">
+        <label for="email">Email Address</label>
+        <input type="email" id="email" class="form-input" placeholder="Enter your email" required autocomplete="email">
+      </div>
+
+      <div class="form-group">
+        <label for="password">Password</label>
+        <input type="password" id="password" class="form-input" placeholder="Enter your password" required minlength="6" autocomplete="current-password">
+      </div>
+
+      <button type="submit" class="login-btn" id="loginBtn">
+        <span>Login →</span>
+      </button>
+
+      <div class="login-links" style="margin-top: 12px;">
+        🔐 <a href="forgot-password.html">Forgot Password?</a>
+      </div>
+
+      <div class="login-links">
+        Don't have an account? <a href="register.html">Register here</a>
+      </div>
+    </form>
+  </main>
+
+  <script src="common.js"></script>
+  <script>
+    class LoginManager {
+      constructor() {
+        this.form = document.getElementById('loginForm');
+        this.btn = document.getElementById('loginBtn');
+        this.form.addEventListener('submit', (e) => this.login(e));
+      }
+
+      async login(e) {
+        e.preventDefault();
+        if (!this.validate()) return this.showMsg('error', 'Fix errors above');
+
+        this.setLoading(true);
+        try {
+          const { email, password } = this.getFormData();
+          const res = await apiFetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ email, password })
+          });
+          const data = await res.json();
+
+          if (data.token) {
+            this.saveSession(data);
+            this.showMsg('success', 'Login successful! Redirecting...');
+            setTimeout(() => location.href = 'dashboard.html', 1200);
+          } else {
+            throw new Error(data.error || 'Login failed');
+          }
+        } catch (err) {
+          const msg = err?.message === 'Failed to fetch'
+            ? `Unable to reach API at ${API_BASE_URL}. Start backend server and try again.`
+            : (err.message || 'Connection error');
+          this.showMsg('error', msg);
+        } finally {
+          this.setLoading(false);
+        }
+      }
+
+      validate() {
+        const email = document.getElementById('email');
+        const pass = document.getElementById('password');
+        let valid = true;
+
+        if (!email.value || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value)) {
+          email.style.borderColor = '#ef4444';
+          valid = false;
+        } else email.style.borderColor = '';
+
+        if (pass.value.length < 6) {
+          pass.style.borderColor = '#ef4444';
+          valid = false;
+        } else pass.style.borderColor = '';
+
+        return valid;
+      }
+
+      getFormData() {
+        return {
+          email: document.getElementById('email').value,
+          password: document.getElementById('password').value
+        };
+      }
+
+      saveSession(data) {
+        localStorage.setItem('token', data.token);
+        localStorage.setItem('name', data.name || 'User');
+      }
+
+      setLoading(loading) {
+        this.btn.disabled = loading;
+        this.btn.style.opacity = loading ? '0.8' : '1';
+      }
+
+      showMsg(type, msg) {
+        const el = document.getElementById(type + 'Msg');
+        el.textContent = msg;
+        el.style.display = 'block';
+        setTimeout(() => {
+          el.style.display = 'none';
+        }, 4500);
+      }
+    }
+
+    new LoginManager();
+  </script>
+</body>
+</html>
