@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Add Expense - SmartExpense Tracker</title>
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body {
+      margin: 0;
+      background: linear-gradient(180deg, #f4f2fb 0%, #edf0f7 100%);
+      min-height: 100vh;
+    }
+
+    .nav {
+      background: linear-gradient(90deg, #1e0830 0%, #3f005e 45%, #24063c 100%);
+      border: none;
+      box-shadow: 0 10px 30px rgba(52, 0, 74, 0.28);
+    }
+
+    .nav-title,
+    .nav-link {
+      color: #fff;
+    }
+
+    .nav-link:hover {
+      color: #fff;
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .theme-toggle {
+      border-color: rgba(255, 255, 255, 0.28);
+      color: #fff;
+      background: rgba(255, 255, 255, 0.12);
+    }
+
+    .container {
+      padding-top: 2rem;
+      padding-bottom: 3rem;
+    }
+
+    .card {
+      border-radius: 24px;
+      border: 1px solid rgba(93, 77, 142, 0.16);
+      box-shadow: 0 20px 45px rgba(46, 24, 86, 0.1);
+      background: rgba(255, 255, 255, 0.95);
+    }
+  </style>
+</head>
+<body>
+
+  <nav class="nav">
+    <div class="nav-title">Smart Expense Tracker</div>
+    <div class="nav-links">
+      <a href="dashboard.html" class="nav-link">Dashboard</a>
+      <a href="add-expense.html" class="nav-link">Add Expense</a>
+      <a href="income.html" class="nav-link">Income</a>
+      <a href="recurring.html" class="nav-link">Recurring</a>
+      <a href="budget.html" class="nav-link">Budget</a>
+      <button onclick="toggleDarkMode()" class="theme-toggle" title="Toggle Dark Mode">🌙</button>
+      <a href="#" onclick="logout()" class="nav-link btn btn--outline btn--small">Logout</a>
+    </div>
+  </nav>
+
+  <main class="container">
+    <div class="card" style="max-width: 480px; margin: 4rem auto;">
+      <header class="text-center mb-lg">
+        <h1>Add New Expense</h1>
+      </header>
+
+      <form class="form-group">
+        <label class="form-label" for="amount">Amount (₹)</label>
+        <input type="number" id="amount" class="form-input" placeholder="0.00" min="0" step="0.01" required>
+
+        <label class="form-label" for="description">Description</label>
+        <input type="text" id="description" class="form-input" placeholder="What did you spend on?" required oninput="autoCategory()">
+
+        <label class="form-label" for="category">Category <span class="text-primary" style="font-size: 0.8rem; font-weight: normal;">(AI auto-detects)</span></label>
+        <select id="category" class="form-select" required>
+          <option value="">Select category</option>
+        </select>
+
+        <label class="form-label" for="date">Date</label>
+        <input type="date" id="date" class="form-input" required>
+
+        <div class="message--error" id="error" role="alert"></div>
+        <div class="message--success" id="success" role="alert"></div>
+
+        <div class="grid-2 gap-md">
+          <button type="button" onclick="addExpense()" class="btn btn--primary full-width">Add Expense</button>
+          <a href="dashboard.html" class="btn btn--outline full-width text-center">Back to Dashboard</a>
+        </div>
+      </form>
+    </div>
+  </main>
+
+  <script src="common.js"></script>
+  <script>
+    const token = localStorage.getItem('token');
+    if (!token) window.location.href = 'login.html';
+
+    // Set today as default date
+    document.getElementById('date').valueAsDate = new Date();
+    populateCategories('category');
+
+    function autoCategory() {
+      const desc = document.getElementById('description').value.toLowerCase();
+      const categorySelect = document.getElementById('category');
+      
+      const categoryMap = {
+        food: 'Food', restaurant: 'Food', lunch: 'Food', dinner: 'Food', coffee: 'Food',
+        uber: 'Travel', petrol: 'Travel', bus: 'Travel', movie: 'Entertainment',
+        flipkart: 'Shopping', doctor: 'Health', book: 'Education'
+      };
+      
+      for (let [key, value] of Object.entries(categoryMap)) {
+        if (desc.includes(key)) {
+          categorySelect.value = value;
+          break;
+        }
+      }
+    }
+
+    async function addExpense() {
+      const errorEl = document.getElementById('error');
+      const successEl = document.getElementById('success');
+      errorEl.textContent = '';
+      successEl.textContent = '';
+
+      const formData = {
+        amount: parseFloat(document.getElementById('amount').value),
+        category: document.getElementById('category').value,
+        description: document.getElementById('description').value.trim(),
+        date: document.getElementById('date').value
+      };
+
+      if (isNaN(formData.amount) || formData.amount <= 0 || !formData.description || !formData.category) {
+        errorEl.textContent = 'Please fill all fields correctly';
+        return;
+      }
+
+      try {
+        const res = await apiFetch('/api/expenses/add', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
+          body: JSON.stringify(formData)
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+          successEl.textContent = '✅ Expense added successfully!';
+          setTimeout(() => window.location.href = 'dashboard.html', 1500);
+        } else {
+          errorEl.textContent = data.error || 'Failed to add expense';
+        }
+      } catch (err) {
+        errorEl.textContent = 'Network error. Please try again.';
+      }
+    }
+
+    // Auth
+    function logout() {
+      localStorage.clear();
+      window.location.href = 'login.html';
+    }
+
+    // Theme
+    function toggleDarkMode() {
+      document.body.classList.toggle('dark-mode');
+      localStorage.setItem('darkMode', document.body.classList.contains('dark-mode'));
+    }
+
+    if (localStorage.getItem('darkMode') === 'true') {
+      document.body.classList.add('dark-mode');
+    }
+  </script>
+</body>
+</html>
